@@ -1,0 +1,8 @@
+keras
+opencv-python
+scikit-image
+numpy
+pycurl
+tflearn
+pillow
+h5py
