@@ -27,15 +27,14 @@ python train_cnn.py GPU_DEVICE EXPERIMENT_NAME RANDOM_SEED
 DATA_FILE = r'./data/data.cfg'
 configParser = ConfigParser.RawConfigParser()
 configParser.read(DATA_FILE)
-cam16_path=configParser.get('hdf5', 'cam16')
-cam16 = hd.File(cam16_path, 'r')
+#
+cam16 = hd.File(configParser.get('hdf5', 'cam16'), 'r')
 all500 = hd.File(configParser.get('hdf5', 'all500'), 'r')
 extra17 = hd.File(configParser.get('hdf5', 'extra17'), 'r')
 tumor_extra17=hd.File(configParser.get('hdf5', 'tumor_extra17'),'r')
 test2 = hd.File(configParser.get('hdf5', 'test2'),'r')
 global data
 data={'cam16':cam16,'all500':all500,'extra17':extra17, 'tumor_extra17':tumor_extra17, 'test_data2': test2}
-
 # DATA SPLIT CSVs
 train_csv=open(configParser.get('csv', 'train_csv'), 'r')
 val_csv=open(configParser.get('csv', 'val_csv'), 'r')
