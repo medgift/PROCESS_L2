@@ -27,31 +27,28 @@ python train_cnn.py GPU_DEVICE EXPERIMENT_NAME RANDOM_SEED
 DATA_FILE = r'./data/data.cfg'
 configParser = ConfigParser.RawConfigParser()
 configParser.read(DATA_FILE)
-cam16_path = configParser.get('hdf5', 'cam16')
-print cam16_path
-exit(0)
-cam16 = hd.File(cam16_path, 'r')
-all500 = hd.File('../data/all500/patches.hdf5', 'r')
-extra17 = hd.File('../camnet/extra17/patches.hdf5', 'r')
-tumor_extra17=hd.File('../camnet/1129-1155/patches.hdf5','r')
-test2 = hd.File('/mnt/nas2/results/IntermediateResults/Camelyon/ultrafast/test_data2/patches.hdf5','r')
+cam16 = hd.File(configParser.get('hdf5', 'cam16'), 'r')
+all500 = hd.File(configParser.get('hdf5', 'all500'), 'r')
+extra17 = hd.File(configParser.get('hdf5', 'extra17'), 'r')
+tumor_extra17=hd.File(configParser.get('hdf5', 'tumor_extra17'),'r')
+test2 = hd.File(configParser.get('hdf5', 'test2'),'r')
 global data
 data={'cam16':cam16,'all500':all500,'extra17':extra17, 'tumor_extra17':tumor_extra17, 'test_data2': test2}
 
 # DATA SPLIT CSVs
-train_csv=open('/mnt/nas2/results/IntermediateResults/Camelyon/train_shuffle.csv', 'r')
-val_csv=open('/mnt/nas2/results/IntermediateResults/Camelyon/val_shuffle.csv', 'r')
-test_csv=open('/mnt/nas2/results/IntermediateResults/Camelyon/test_shuffle.csv', 'r')
+train_csv=open(configParser.get('csv', 'train_csv'), 'r')
+val_csv=open(configParser.get('csv', 'val_csv'), 'r')
+test_csv=open(configParser.get('csv', 'test_csv'), 'r')
 train_list=train_csv.readlines()
 val_list=val_csv.readlines()
 test_list=test_csv.readlines()
-test2_csv = open('/mnt/nas2/results/IntermediateResults/Camelyon/test2_shuffle.csv', 'r')
+test2_csv = open(configParser.get('csv', 'test2_csv'), 'r')
 test2_list=test2_csv.readlines()
 test2_csv.close()
 train_csv.close()
 val_csv.close()
 test_csv.close()
-data_csv=open('/mnt/nas2/results/IntermediateResults/Camelyon/data_shuffle.csv', 'r')
+data_csv=open(configParser.get('csv', 'data_csv'), 'r')
 data_list=data_csv.readlines()
 data_csv.close()
 
