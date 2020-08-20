@@ -29,7 +29,7 @@ configParser = ConfigParser.RawConfigParser()
 configParser.read(DATA_FILE)
 cam16_path = configParser.get('hdf5', 'cam16')
 print cam16_path
-exit 0 
+exit(0)
 cam16 = hd.File(cam16_path, 'r')
 all500 = hd.File('../data/all500/patches.hdf5', 'r')
 extra17 = hd.File('../camnet/extra17/patches.hdf5', 'r')
