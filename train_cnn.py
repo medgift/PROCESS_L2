@@ -13,32 +13,46 @@ import time
 import sys
 import shutil
 ## Adding PROCESS_UC1 utilities
-sys.path.append('lib/TASK_2_UC1/')
+sys.path.append('lib/')
 from models import *
 from functions import *
 from util import otsu_thresholding
 from extract_xml import *
 from functions import *
-sys.path.append('lib/')
 from mlta import *
 
-## Loading importance sampling libraries
-from importance_sampling.training import ImportanceTraining
-
 """
-python train_cnn.py GPU_DEVICE RANDOM_SEED
+bash hvd_train.sh EXPERIMENT_NAME
 """
-
-# DATA PATHS --> THESE WILL HAVE TO BE MODIFIED FOR THE DENSE DATASET
-cam16 = hd.File('../camnet/cam16_500/patches.hdf5', 'r')
-all500 = hd.File('../data/all500/patches.hdf5', 'r')
-extra17 = hd.File('../camnet/extra17/patches.hdf5', 'r')
-tumor_extra17=hd.File('../camnet/1129-1155/patches.hdf5','r')
-test2 = hd.File('/mnt/nas2/results/IntermediateResults/Camelyon/ultrafast/test_data2/patches.hdf5','r')
+DATA_FILE = r'./data/data.cfg'
+configParser = ConfigParser.RawConfigParser()
+configParser.read(DATA_FILE)
+#
+cam16 = hd.File(configParser.get('hdf5', 'cam16'), 'r')
+all500 = hd.File(configParser.get('hdf5', 'all500'), 'r')
+extra17 = hd.File(configParser.get('hdf5', 'extra17'), 'r')
+tumor_extra17=hd.File(configParser.get('hdf5', 'tumor_extra17'),'r')
+test2 = hd.File(configParser.get('hdf5', 'test2'),'r')
 global data
 data={'cam16':cam16,'all500':all500,'extra17':extra17, 'tumor_extra17':tumor_extra17, 'test_data2': test2}
+# DATA SPLIT CSVs
+train_csv=open(configParser.get('csv', 'train_csv'), 'r')
+val_csv=open(configParser.get('csv', 'val_csv'), 'r')
+test_csv=open(configParser.get('csv', 'test_csv'), 'r')
+train_list=train_csv.readlines()
+val_list=val_csv.readlines()
+test_list=test_csv.readlines()
+test2_csv = open(configParser.get('csv', 'test2_csv'), 'r')
+test2_list=test2_csv.readlines()
+test2_csv.close()
+train_csv.close()
+val_csv.close()
+test_csv.close()
+data_csv=open(configParser.get('csv', 'data_csv'), 'r')
+data_list=data_csv.readlines()
+data_csv.close()
 
-#SYSTEM CONFIGS 
+#SYSTEM CONFIGS
 CONFIG_FILE = 'doc/config.cfg'
 GPU_DEVICE = sys.argv[1]
 os.environ["CUDA_VISIBLE_DEVICES"]= str(GPU_DEVICE)
@@ -68,26 +82,8 @@ tf.set_random_seed(seed)
 # GPU CONFIG
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
-#config.gpu_options.visible_device_list = sys.argv[2] 
+#config.gpu_options.visible_device_list = sys.argv[2]
 keras.backend.tensorflow_backend.set_session(tf.Session(config=config))
-
-# DATA SPLIT CSVs
-train_csv=open('/mnt/nas2/results/IntermediateResults/Camelyon/train_shuffle.csv', 'r')
-val_csv=open('/mnt/nas2/results/IntermediateResults/Camelyon/val_shuffle.csv', 'r')
-test_csv=open('/mnt/nas2/results/IntermediateResults/Camelyon/test_shuffle.csv', 'r')
-train_list=train_csv.readlines()
-val_list=val_csv.readlines()
-test_list=test_csv.readlines()
-test2_csv = open('/mnt/nas2/results/IntermediateResults/Camelyon/test2_shuffle.csv', 'r')
-test2_list=test2_csv.readlines()
-test2_csv.close()
-train_csv.close()
-val_csv.close()
-test_csv.close()
-data_csv=open('/mnt/nas2/results/IntermediateResults/Camelyon/data_shuffle.csv', 'r')
-data_list=data_csv.readlines()
-data_csv.close()
-
 
 # STAIN NORMALIZATION
 def get_normalizer(patch, save_folder=''):
@@ -108,9 +104,9 @@ normalization_reference_patch = data[db_name][entry_path][patch_no]
 normalizer = get_normalizer(normalization_reference_patch, save_folder=new_folder)
 
 """
-Batch generators: 
-They load a patch list: a list of file names and paths. 
-They use the list to create a batch of 32 samples. 
+Batch generators:
+They load a patch list: a list of file names and paths.
+They use the list to create a batch of 32 samples.
 """
 # BATCH GENERATORS
 def get_batch_data(patch_list, batch_size=32):
@@ -127,18 +123,18 @@ def get_batch_data(patch_list, batch_size=32):
                 patch=data[db_name][entry_path][patch_no]
                 patch=normalize_patch(patch, normalizer)
                 # patch=keras.applications.inception_v3.preprocess_input(patch) #removed bc of BNorm
-                patch=keras.applications.resnet50.preprocess_input(patch) 
+                patch=keras.applications.resnet50.preprocess_input(patch)
                 label = get_class(line, entry_path)
                 batch_x.append(patch)
                 batch_y.append(label)
                 # BASELINE
                 batch_cm.append(1.) # cm is a constant in the baseline
             batch_x = np.asarray(batch_x, dtype=np.float32)
-            yield batch_samples, np.asarray(batch_x, dtype=np.float32), np.asarray(batch_y, dtype=np.float32), np.asarray(batch_cm, dtype=np.float32)  
-            
+            yield batch_samples, np.asarray(batch_x, dtype=np.float32), np.asarray(batch_y, dtype=np.float32), np.asarray(batch_cm, dtype=np.float32)
+
 def get_test_batch(patch_list, batch_size=32):
     num_samples=len(patch_list)
-    while True:     
+    while True:
         for offset in range(0,num_samples, batch_size):
             batch_x = []
             batch_y = []
@@ -148,7 +144,7 @@ def get_test_batch(patch_list, batch_size=32):
             for line in batch_samples:
                 db_name, entry_path, patch_no = get_keys(line)
                 patch=data[db_name][entry_path][patch_no]
-                
+
                 patch=normalize_patch(patch, normalizer)
                 #patch=keras.applications.inception_v3.preprocess_input(patch)
                 patch=keras.applications.resnet50.preprocess_input(patch)
@@ -161,7 +157,7 @@ def get_test_batch(patch_list, batch_size=32):
             yield batch_samples, np.asarray(batch_x, dtype=np.float32), np.asarray(batch_y, dtype=np.float32), np.asarray(batch_cm, dtype=np.float32)
 
 """
-Building baseline model 
+Building baseline model
 """
 #
 # MODEL: BASELINE
@@ -206,10 +202,10 @@ starting_time = time.time()
 
 for e in range(20):
     p = np.float(e) / 10
-    lr = 1e-4 
+    lr = 1e-4
     K.set_value(model.optimizer.lr, lr)
     f.write('\n[debug] desired lr at epoch {}: {}, lr value: {}\n'.format(e, lr, K.eval(model.optimizer.lr)))
-    # parameters for training    
+    # parameters for training
     total_loss=0.
     main_task_loss=0.
     concept_loss=0.
@@ -260,7 +256,7 @@ for e in range(20):
     loss_concept=0.
     acc_main_task=0.
     concept_r2=0.
-    
+
     # PRE-TRAINING evaluation
     # test
     while n_t_batches<TEST_BATCHES:
@@ -307,7 +303,7 @@ for e in range(20):
     test_auc=sklearn.metrics.roc_auc_score(y_test_all, y_pred)
     test_2_auc=sklearn.metrics.roc_auc_score(y_test2_all, y_pred2)
     val_auc = sklearn.metrics.roc_auc_score(y_val_all, y_pred_val)
-    
+
     sign_pred = np.sign(y_pred_val)
     zeros_count = np.count_nonzero(sign_pred == -1)
     ones_count =  np.count_nonzero(sign_pred == 1)
@@ -316,7 +312,7 @@ for e in range(20):
                                             val_loss_concept/VAL_BATCHES,
                                             val_acc/VAL_BATCHES,
                                             val_r2/VAL_BATCHES,
-                                            val_auc, 
+                                            val_auc,
                                             float(zeros_count)/len(y_pred_val),
                                             float(ones_count)/len(y_pred_val)
                                             )
@@ -326,11 +322,11 @@ for e in range(20):
                                             val_loss_concept/VAL_BATCHES,
                                             val_acc/VAL_BATCHES,
                                             val_r2/VAL_BATCHES,
-                                            val_auc, 
+                                            val_auc,
                                             float(zeros_count)/len(y_pred_val),
                                             float(ones_count)/len(y_pred_val)
                                             )
-                                            
+
     sign_pred = np.sign(y_pred)
     zeros_count = np.count_nonzero(sign_pred == -1)
     ones_count =  np.count_nonzero(sign_pred == 1)
@@ -339,7 +335,7 @@ for e in range(20):
                                             test_loss_concept/TEST_BATCHES,
                                             test_acc/TEST_BATCHES,
                                             test_r2/TEST_BATCHES,
-                                            test_auc, 
+                                            test_auc,
                                             float(zeros_count)/len(y_pred),
                                             float(ones_count)/len(y_pred)
                                             ))
@@ -348,7 +344,7 @@ for e in range(20):
                                             test_loss_concept/TEST_BATCHES,
                                             test_acc/TEST_BATCHES,
                                             test_r2/TEST_BATCHES,
-                                            test_auc, 
+                                            test_auc,
                                             float(zeros_count)/len(y_pred),
                                             float(ones_count)/len(y_pred)
                                             )
@@ -360,18 +356,18 @@ for e in range(20):
                                             test_2_loss_concept/TEST_2_BATCHES,
                                             test_2_acc/TEST_2_BATCHES,
                                             test_2_r2/TEST_2_BATCHES,
-                                            test_2_auc, 
+                                            test_2_auc,
                                             float(zeros_count)/len(y_pred2),
                                             float(ones_count)/len(y_pred2)
                                             )
            )
-                                            
+
     print 'Test2: total loss: {}, main task loss: {}, concept loss: {}, main task accuracy: {}, concept r2: {}, AUC: {}, percentage of predicted zeros-ones: {}-{} \n'.format(test_2_loss_total/TEST_2_BATCHES,
                                             test_2_loss_main_task/TEST_2_BATCHES,
                                             test_2_loss_concept/TEST_2_BATCHES,
                                             test_2_acc/TEST_2_BATCHES,
                                             test_2_r2/TEST_2_BATCHES,
-                                            test_2_auc, 
+                                            test_2_auc,
                                             float(zeros_count)/len(y_pred2),
                                             float(ones_count)/len(y_pred2)
                                             )
@@ -387,7 +383,7 @@ for e in range(20):
             best_test2_auc=test_2_auc
         else:
             patience_counter+=1
-    
+
     loss_total=loss_main_task=acc_main_task=0.
     predicted_ys=[]
     for n_batch in range(MAX_BATCHES):
@@ -408,7 +404,7 @@ for e in range(20):
     loss_total /=total_n1_in_batch
     loss_main_task/=total_n1_in_batch
     acc_main_task/=total_n1_in_batch
-    print '\n Pre Training Epoch {}, total loss: {}, main task loss: {}, concept loss: {}, main task accuracy: {}, concept r2: {}'.format(e, 
+    print '\n Pre Training Epoch {}, total loss: {}, main task loss: {}, concept loss: {}, main task accuracy: {}, concept r2: {}'.format(e,
            loss_total,
            loss_main_task,
            loss_concept/MAX_BATCHES,
@@ -430,19 +426,19 @@ for e in range(20):
     for n_batch in range(MAX_BATCHES):
         paths, x, y, cm = next(train_generator2)
         # TRAIN -- baseline
-        # batch_metrics = model.fit(x, [y, cm], 
+        # batch_metrics = model.fit(x, [y, cm],
         #     batch_size=64,
-        #      class_weight=[{-1:1., 0:1., 1:1.,}, {-1: 1, 0: 1., 1: 1.}], 
+        #      class_weight=[{-1:1., 0:1., 1:1.,}, {-1: 1, 0: 1., 1: 1.}],
         #      epochs=1,
         #     verbose=0
         #     )
         """
-        Here I am loading the importance sampling pipeline. 
+        Here I am loading the importance sampling pipeline.
         """
         # TRAIN -- importance sampling
         batch_metrics = ImportanceTraining(model).fit(
                           x, [y, cm],
-                          batch_size=BATCH_SIZE, 
+                          batch_size=BATCH_SIZE,
                           epochs=5,
                           verbose=1,
                           #validation_data=(x_test, y_test)
@@ -494,48 +490,48 @@ f.write('Validation: total loss: {}, main task loss: {}, concept loss: {}, main 
             val_loss_concept/VAL_BATCHES,
             val_acc/VAL_BATCHES,
             val_r2/VAL_BATCHES,
-            val_auc, 
+            val_auc,
             ))
 print 'Validation: total loss: {}, main task loss: {}, concept loss: {}, main task accuracy: {}, concept r2: {}, AUC: {},  \n'.format(val_loss_total/VAL_BATCHES,
             val_loss_main_task/VAL_BATCHES,
             val_loss_concept/VAL_BATCHES,
             val_acc/VAL_BATCHES,
             val_r2/VAL_BATCHES,
-            val_auc, 
+            val_auc,
             )
 f.write('Test: total loss: {}, main task loss: {}, concept loss: {}, main task accuracy: {}, concept r2: {}, AUC: {}, \n'.format(test_loss_total/TEST_BATCHES,
             test_loss_main_task/TEST_BATCHES,
             test_loss_concept/TEST_BATCHES,
             test_acc/TEST_BATCHES,
             test_r2/TEST_BATCHES,
-            test_auc, 
+            test_auc,
             ))
 print 'Test: total loss: {}, main task loss: {}, concept loss: {}, main task accuracy: {}, concept r2: {}, AUC: {}, \n'.format(test_loss_total/TEST_BATCHES,
                                         test_loss_main_task/TEST_BATCHES,
                                         test_loss_concept/TEST_BATCHES,
                                         test_acc/TEST_BATCHES,
                                         test_r2/TEST_BATCHES,
-                                        test_auc, 
+                                        test_auc,
                                         )
 f.write('Test2: total loss: {}, main task loss: {}, concept loss: {}, main task accuracy: {}, concept r2: {}, AUC: {}, \n'.format(test_2_loss_total/TEST_2_BATCHES,
                                         test_2_loss_main_task/TEST_2_BATCHES,
                                         test_2_loss_concept/TEST_2_BATCHES,
                                         test_2_acc/TEST_2_BATCHES,
                                         test_2_r2/TEST_2_BATCHES,
-                                        test_2_auc, 
+                                        test_2_auc,
                                         ))
 print 'Test2: total loss: {}, main task loss: {}, concept loss: {}, main task accuracy: {}, concept r2: {}, AUC: {},  \n'.format(test_2_loss_total/TEST_2_BATCHES,
                                         test_2_loss_main_task/TEST_2_BATCHES,
                                         test_2_loss_concept/TEST_2_BATCHES,
                                         test_2_acc/TEST_2_BATCHES,
                                         test_2_r2/TEST_2_BATCHES,
-                                        test_2_auc, 
+                                        test_2_auc,
                                        )
-""" END TRANSFER LEARNING """ 
+""" END TRANSFER LEARNING """
 
 end_time = time.time()
 
-total_training_time = end_time - starting_time 
+total_training_time = end_time - starting_time
 #
 f.write('Time elapsed for model training: {}'.format(total_training_time))
 f.close()

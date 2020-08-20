@@ -9,16 +9,19 @@ import time
 import sys
 import shutil
 ## Adding PROCESS_UC1 utilities
-sys.path.append('lib/TASK_2_UC1/')
+sys.path.append('lib')
 from models import *
 from util import otsu_thresholding
 from extract_xml import *
 from functions import *
-sys.path.append('lib/')
 from mlta import *
 import math
 import horovod.keras as hvd
 import sklearn.metrics
+#
+"""
+bash hvd_train.sh EXPERIMENT_NAME
+"""
 #
 EXPERIMENT_TYPE=sys.argv[2]
 #
@@ -32,14 +35,33 @@ keras.backend.set_session(tf.Session(config=config))
 #
 verbose=1 if hvd.local_rank()==1 else 0
 # DATA PATHS
-cam16 = hd.File('/home/mara/adversarialMICCAI/data/ultrafast/cam16_500/patches.hdf5',  'r', libver='latest', swmr=True)
-all500 = hd.File('/home/mara/adversarialMICCAI/data/ultrafast/all500/patches.hdf5',  'r', libver='latest', swmr=True)
-extra17 = hd.File('/home/mara/adversarialMICCAI/data/ultrafast/extra17/patches.hdf5',  'r', libver='latest', swmr=True)
-tumor_extra17=hd.File('/home/mara/adversarialMICCAI/data/ultrafast/1129-1155/patches.hdf5', 'r', libver='latest', swmr=True)
-test2 = hd.File('/mnt/nas2/results/IntermediateResults/Camelyon/ultrafast/test_data2/patches.hdf5', 'r', libver='latest', swmr=True)
+DATA_FILE = r'./data/data.cfg'
+configParser = ConfigParser.RawConfigParser()
+configParser.read(DATA_FILE)
 #
+cam16 = hd.File(configParser.get('hdf5', 'cam16'), 'r')
+all500 = hd.File(configParser.get('hdf5', 'all500'), 'r')
+extra17 = hd.File(configParser.get('hdf5', 'extra17'), 'r')
+tumor_extra17=hd.File(configParser.get('hdf5', 'tumor_extra17'),'r')
+test2 = hd.File(configParser.get('hdf5', 'test2'),'r')
 global data
 data={'cam16':cam16,'all500':all500,'extra17':extra17, 'tumor_extra17':tumor_extra17, 'test_data2': test2}
+# DATA SPLIT CSVs
+train_csv=open(configParser.get('csv', 'train_csv'), 'r')
+val_csv=open(configParser.get('csv', 'val_csv'), 'r')
+test_csv=open(configParser.get('csv', 'test_csv'), 'r')
+train_list=train_csv.readlines()
+val_list=val_csv.readlines()
+test_list=test_csv.readlines()
+test2_csv = open(configParser.get('csv', 'test2_csv'), 'r')
+test2_list=test2_csv.readlines()
+test2_csv.close()
+train_csv.close()
+val_csv.close()
+test_csv.close()
+data_csv=open(configParser.get('csv', 'data_csv'), 'r')
+data_list=data_csv.readlines()
+data_csv.close()
 #SYSTEM CONFIGS
 CONFIG_FILE = 'doc/config.cfg'
 COLOR = True
@@ -62,22 +84,6 @@ setproctitle.setproctitle('UC1_{}'.format(EXPERIMENT_TYPE))
 # SET SEED
 np.random.seed(seed)
 tf.set_random_seed(seed)
-# DATA SPLIT CSVs
-train_csv=open('/mnt/nas2/results/IntermediateResults/Camelyon/train_shuffle.csv', 'r') # How is the encoding of .csv files ?
-val_csv=open('/mnt/nas2/results/IntermediateResults/Camelyon/val_shuffle.csv', 'r')
-test_csv=open('/mnt/nas2/results/IntermediateResults/Camelyon/test_shuffle.csv', 'r')
-train_list=train_csv.readlines()
-val_list=val_csv.readlines()
-test_list=test_csv.readlines()
-test2_csv = open('/mnt/nas2/results/IntermediateResults/Camelyon/test2_shuffle.csv', 'r')
-test2_list=test2_csv.readlines()
-test2_csv.close()
-train_csv.close()
-val_csv.close()
-test_csv.close()
-data_csv=open('./data/train.csv', 'r')
-data_list=data_csv.readlines()
-data_csv.close()
 #
 # STAIN NORMALIZATION
 def get_normalizer(patch, save_folder=''):
