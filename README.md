@@ -22,13 +22,14 @@ Configuration files are ini-based. A full template is in doc/config.cfg.
 
 The master script is a pipeline-based program that can be run by the command
 
-python train_cnn.py GPU_DEVICE RANDOM_SEED
+python train_cnn.py GPU_DEVICE EXPERIMENT_NAME RANDOM_SEED
 
 GPU_DEVICE = GPU index on server
+EXPERIMENT_NAME = name of the experiment
 RANDOM_SEED = seed for reproducibility. 
 
 For example, you can run the script as follows: 
 
-python train_cnn.py 0 1001
+python train_cnn.py 0 debug_run 1001
 
 
