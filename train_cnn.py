@@ -27,7 +27,8 @@ python train_cnn.py GPU_DEVICE EXPERIMENT_NAME RANDOM_SEED
 DATA_FILE = r'./data/data.cfg'
 configParser = ConfigParser.RawConfigParser()
 configParser.read(DATA_FILE)
-cam16 = hd.File(configParser.get('hdf5', 'cam16'), 'r')
+cam16_path=configParser.get('hdf5', 'cam16')
+cam16 = hd.File(cam16_path, 'r')
 all500 = hd.File(configParser.get('hdf5', 'all500'), 'r')
 extra17 = hd.File(configParser.get('hdf5', 'extra17'), 'r')
 tumor_extra17=hd.File(configParser.get('hdf5', 'tumor_extra17'),'r')
