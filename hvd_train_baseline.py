@@ -167,7 +167,10 @@ Building baseline model
 """
 #
 # MODEL: BASELINE
-base_model = keras.applications.inception_v3.InceptionV3(include_top=True, weights='imagenet')
+#base_model = keras.applications.inception_v3.InceptionV3(include_top=True, weights='imagenet')
+input_tensor = keras.layers.Input(shape=(224, 224, 3))
+base_model = keras.applications.inception_v3.InceptionV3(input_tensor=input_tensor, weights='imagenet', include_top=True)
+
 # freezing some layers
 layers_list=['conv2d_92', 'conv2d_93', 'conv2d_88', 'conv2d_89', 'conv2d_86']
 for i in range(len(base_model.layers[:])):
@@ -217,12 +220,12 @@ callbacks = [
         # Horovod: using `lr = 1.0 * hvd.size()` from the very beginning leads to worse final
         # accuracy. Scale the learning rate `lr = 1.0` ---> `lr = 1.0 * hvd.size()` during
         # the first five epochs. See https://arxiv.org/abs/1706.02677 for details.
-        hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, initial_lr=initial_lr,
+        hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5,
                                                  verbose=verbose),
         # Horovod: after the warmup reduce learning rate by 10 on the 30th, 60th and 80th epochs.
-        hvd.callbacks.LearningRateScheduleCallback(start_epoch=5, end_epoch=30, multiplier=1.,
-                                                   initial_lr=initial_lr),
-        hvd.callbacks.LearningRateScheduleCallback(start_epoch=30, end_epoch=60, multiplier=1e-1, initial_lr=initial_lr),
+        hvd.callbacks.LearningRateScheduleCallback(start_epoch=5, end_epoch=30, multiplier=1.
+                                                   ),
+        hvd.callbacks.LearningRateScheduleCallback(start_epoch=30, end_epoch=60, multiplier=1e-1 ),
         keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50),
         #hvd.callbacks.LearningRateScheduleCallback(start_epoch=60, end_epoch=80, multiplier=1e-2, initial_lr=initial_lr),
         #hvd.callbacks.LearningRateScheduleCallback(start_epoch=80, multiplier=1e-3, initial_lr=initial_lr),
